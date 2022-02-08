@@ -28,7 +28,6 @@ def parse_epistasis_args():
     parser.add_argument("-p", '--paths', help='Path to all sample path text file to accumulate mutations from.',required=True)
     parser.add_argument("-b", '--binding', help='Path to binding calculator data file.',default='escape_calculator_data.csv')
     parser.add_argument("-t", '--threshold', type=int,help='Set a minimum count of leaves downstream to consider a mutation as anchor. Default 1000',default=1000)
-
     args = parser.parse_args()
     return args
 
@@ -331,5 +330,6 @@ def epistasis_pipe():
     aadf = process_pair_aadf(tdf,cod_dnds,aaprob,translate,calculator,encode_cols)
     aadf.to_csv(args.aa_output,index=False)
     pairdf = build_pairdf(aadf,calculator)
+    pairdf['corrfepv'] = pairdf.fepv * pairdf.shape[0]
     pairdf.to_csv(args.pair_epistasis,index=False)
 
