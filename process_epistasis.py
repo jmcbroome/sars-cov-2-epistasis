@@ -18,7 +18,8 @@ aagroups = {'aliphatic':['G','A','V','L','I'], 'hydroxyl':['S','C','U','T','M'],
 
 def parse_epistasis_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--translation", help="Path to a translation table produced by matUtils extract.", required=True)
+    parser.add_argument("-t", "--translation", help="Path to a translation table produced by matUtils extract.", default = "")
+    parser.add_argument("-et", "--expanded_translation",help='Path to a processed, per-mutation translation table. Code will generate one if not provided.',default = None)
     parser.add_argument("-g", "--gtf", help="Path to a gtf containing exon spans", default='exons.gtf')
     parser.add_argument("-f", "--fasta", help="Path to a fasta containing the gene sequences matching the exons", default='genes.fasta')
     parser.add_argument("-c", "--clades", help="Path to a file containing node and clade matching annotations.", required=True)
@@ -27,7 +28,7 @@ def parse_epistasis_args():
     parser.add_argument("-aa", "--aa_output", help="Path to save site level conservation statistics for pair anchored sites.", default='binding_dnds.csv')
     parser.add_argument("-p", '--paths', help='Path to all sample path text file to accumulate mutations from.',required=True)
     parser.add_argument("-b", '--binding', help='Path to binding calculator data file.',default='escape_calculator_data.csv')
-    parser.add_argument("-t", '--threshold', type=int,help='Set a minimum count of leaves downstream to consider a mutation as anchor. Default 1000',default=1000)
+    parser.add_argument("-th", '--threshold', type=int,help='Set a minimum count of leaves downstream to consider a mutation as anchor. Default 1000',default=1000)
     args = parser.parse_args()
     return args
 
@@ -292,12 +293,10 @@ def build_pairdf(aadf,calculator):
     for tl, osdf in aadf.groupby("Loc"):
         for al, sdf in osdf.groupby("PairedWithSite"):
             if al == tl:
-                #they really shouldn't be, I should probably go back and figure that out
                 continue
             sdf = sdf.set_index("PairedState")
             tps = sdf.loc[True]
             fps = sdf.loc[False]
-            #print(tps.RoHo,fps.RoHo)
             if tps.Count > 10 and fps.Count > 10:
                 pairdf['target'].append(tl)
                 pairdf['anchor'].append(al)
@@ -315,21 +314,28 @@ def build_pairdf(aadf,calculator):
 def epistasis_pipe():
     args = parse_epistasis_args()
     otdf = pd.read_csv(args.translation,sep='\t')
-    cldf = pd.read_csv(args.clades,sep='\t')
+    cldf = pd.read_csv(args.clades,sep='\t').set_index("sample")
     types = get_types()
     norm_mtypes = get_mtypes(otdf, types)
     translate, aaprob, cod_dnds = build_expectation(norm_mtypes)
+    print("Reshaping translation to per-mutation.")
     tdf = process_tdf(otdf,cldf)
     tdf['StopGain'] = tdf.ALC.apply(lambda x:(translate[x] == 'Stop'))
     tdf.to_csv(args.expanded_output,index=False)
+    print("Ascertaining binding across translation.")
     npd = get_npd(args.paths)
     calculator = bc.BindingCalculator(csv_or_url=args.binding,eliciting_virus='SARS-CoV-2',source_lab='all',neutralizes_Omicron='either',metric='sum of mutations at site',mutation_escape_strength=1)
     bind_d = build_bindd(tdf,npd)
     downstream_of = accumulate_changes(npd,bind_d)
     tdf, encode_cols = assign_epicols(tdf,downstream_of,args.thresh)
+    print("Building amino-acid level conservation analysis with pair anchors.")
     aadf = process_pair_aadf(tdf,cod_dnds,aaprob,translate,calculator,encode_cols)
     aadf.to_csv(args.aa_output,index=False)
+    print("Performing statistical testing and reshaping final output.")
     pairdf = build_pairdf(aadf,calculator)
     pairdf['corrfepv'] = pairdf.fepv * pairdf.shape[0]
     pairdf.to_csv(args.pair_epistasis,index=False)
+    print("Complete.")
 
+if __name__ == "__main__":
+    epistasis_pipe()  

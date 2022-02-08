@@ -97,7 +97,10 @@ def process_tdf(otdf,cldf):
             tdf['NT'].append(nts[i])
             tdf['CC'].append(ccs[i])
             tdf['Leaves'].append(d.leaves_sharing_mutations)
-            tdf['Clade'].append(cldf.loc[d.node_id].annotation_1)
+            try:
+                tdf['Clade'].append(cldf.loc[d.node_id].annotation_1)
+            except KeyError:
+                tdf['Clade'].append('N/A')
     tdf = pd.DataFrame(tdf)
     tdf['Gene'] = tdf.AA.apply(lambda x:x.split(":")[0])
     tdf['Loc'] = tdf.NT.apply(lambda x:int(x.split(",")[0][1:-1]))
@@ -113,6 +116,8 @@ def process_tdf(otdf,cldf):
     tdf['AAC'] = tdf.AA.apply(get_aac)
     tdf['OG'] = tdf.AAC.apply(lambda x:x[0])
     tdf["AL"] = tdf.AAC.apply(lambda x:x[-1])
+    tdf['OGC'] = tdf.CC.apply(lambda x:x.split(">")[0])
+    tdf['ALTC'] = tdf.CC.apply(lambda x:x.split(">")[1])
     fr = []
     for i,d in tdf.iterrows():
         try:
@@ -121,9 +126,9 @@ def process_tdf(otdf,cldf):
             print(d.Gene, d.AAL, d.NT, d.AA)
             fr.append(False)
             continue
-        if d.OG_Codon == ref_codon:
+        if d.OGC == ref_codon:
             fr.append("FR")
-        elif d.CC.split(">")[1] == ref_codon:
+        elif d.ALTC == ref_codon:
             fr.append("Back")
         else:
             fr.append("Other")
@@ -256,7 +261,7 @@ def write_chimera(locvals, name = 'conservation', out = 'conservation.txt'):
 def basic_pipe():
     args = parse_basic_args()
     otdf = pd.read_csv(args.translation,sep='\t')
-    cldf = pd.read_csv(args.clades,sep='\t')
+    cldf = pd.read_csv(args.clades,sep='\t').set_index('sample')
     types = get_types()
     norm_mtypes = get_mtypes(otdf, types)
     translate, aaprob, cod_dnds = build_expectation(norm_mtypes)
