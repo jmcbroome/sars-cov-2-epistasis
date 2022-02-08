@@ -1,3 +1,4 @@
+from re import L
 import pandas as pd
 import numpy as np
 import argparse
@@ -318,15 +319,23 @@ def epistasis_pipe():
     types = get_types()
     norm_mtypes = get_mtypes(otdf, types)
     translate, aaprob, cod_dnds = build_expectation(norm_mtypes)
-    print("Reshaping translation to per-mutation.")
-    tdf = process_tdf(otdf,cldf)
-    tdf['StopGain'] = tdf.ALC.apply(lambda x:(translate[x] == 'Stop'))
-    tdf.to_csv(args.expanded_output,index=False)
+    if args.expanded_translation == None:
+        print("Reshaping translation to per-mutation.")
+        tdf = process_tdf(otdf,cldf)
+        tdf['StopGain'] = tdf.ALTC.apply(lambda x:(translate[x] == 'Stop'))
+        tdf.to_csv(args.expanded_output,index=False)
+    else:
+        print("Per-mutation file has been provided; proceeding to next step.")
+        tdf = pd.read_csv(args.expanded_translation)
     print("Ascertaining binding across translation.")
     npd = get_npd(args.paths)
     calculator = bc.BindingCalculator(csv_or_url=args.binding,eliciting_virus='SARS-CoV-2',source_lab='all',neutralizes_Omicron='either',metric='sum of mutations at site',mutation_escape_strength=1)
+    tdf['IsLeaf'] = (tdf.Leaves == 1)
+    print("Reducing translation to the spike RBD only.")
+    tdf = tdf[(tdf.Gene == 'S') & (tdf.AAL.isin(calculator.sites))].set_index("node_id")
     bind_d = build_bindd(tdf,npd)
     downstream_of = accumulate_changes(npd,bind_d)
+    print("Encoding pairwise epistasis states.")
     tdf, encode_cols = assign_epicols(tdf,downstream_of,args.thresh)
     print("Building amino-acid level conservation analysis with pair anchors.")
     aadf = process_pair_aadf(tdf,cod_dnds,aaprob,translate,calculator,encode_cols)

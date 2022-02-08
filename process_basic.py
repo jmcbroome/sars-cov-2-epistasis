@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import argparse
 from scipy.stats import multinomial, chisquare
+from tqdm import tqdm
 
 translate = {'TTT':'F','TTC':'F','TTA':'L','TTG':'L','TCT':'S','TCC':'S','TCA':'S','TCG':'S',
             'TAT':'Y','TAC':'Y','TAA':'Stop','TAG':'Stop','TGT':'C','TGC':'C','TGA':'Stop','TGG':'W',
@@ -88,7 +89,7 @@ def process_tdf(otdf,cldf):
     #need to reshape otdf to extract the sets of mutations, node occurrences, and associated codon changes
     #going to produce a very lorge dataframe
     tdf = {k:[] for k in ['node_id','AA','NT','CC',"Leaves","Clade"]}
-    for i,d in otdf.iterrows():
+    for i,d in tqdm(otdf.iterrows()):
         nts = d.nt_mutations.split(";")
         ccs = d.codon_changes.split(";")
         for i, aa in enumerate(d.aa_mutations.split(";")):
@@ -149,7 +150,7 @@ def build_expectation(norm_mtypes):
                     ncodon_list = [c for c in codon]
                     ncodon_list[i] = alternative
                     ncodon = ''.join(ncodon_list)
-                    naa = translate[ncodon]
+                    #naa = translate[ncodon]
                     naas[ncodon] = mts[b + ">" + alternative] #scale by the probability that this specific change happens as a mutation
         tbp = sum(naas.values()) #rescale so that the distribution is conditioned on a mutation happening at all
         return {k:v/tbp for k,v in naas.items()}
