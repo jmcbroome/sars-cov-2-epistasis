@@ -134,7 +134,7 @@ def process_tdf(otdf,cldf):
         else:
             fr.append("Other")
     tdf['FromRef'] = fr
-    tdf['StopGain'] = tdf.AL.apply(lambda x:(translate[x] == 'Stop'))
+    tdf['StopGain'] = tdf.ALTC.apply(lambda x:(translate[x] == 'Stop'))
     return tdf
 
 def build_expectation(norm_mtypes):

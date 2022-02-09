@@ -109,7 +109,7 @@ def get_chisquare(subdf,aaprob):
     #    return np.nan
     assert subdf.OGC.nunique() == 1
     exp_r = aaprob[subdf.OGC.iloc[0]]
-    act_r = dict(subdf.ALC.value_counts())
+    act_r = dict(subdf.ALTC.value_counts())
     aa_v = []
     exp_pv = []
     exp_cv = []
@@ -243,7 +243,7 @@ def process_pair_aadf(tdf,cod_dnds,aaprob,translate,calculator,encode_cols):
             #getting stop counts is straightforward.
             stop_c = sdf[sdf.StopGain].shape[0]
             #use functions to fetch various statistics
-            stc, ntc, binom_p = get_binomial_leaves(g,l,sdf)
+            stc, ntc, binom_p = get_binomial_leaves(sdf)
             dnds, sync, nonc = get_dnds(g,l,sdf,cod_dnds)
             chi2 = get_chisquare(sdf,aaprob)
             
@@ -268,7 +268,7 @@ def process_pair_aadf(tdf,cod_dnds,aaprob,translate,calculator,encode_cols):
             #getting stop counts is straightforward.
             stop_c = sdf[sdf.StopGain].shape[0]
             #use functions to fetch various statistics
-            stc, ntc, binom_p = get_binomial_leaves(g,l,sdf)
+            stc, ntc, binom_p = get_binomial_leaves(sdf)
             dnds, sync, nonc = get_dnds(g,l,sdf,cod_dnds)
             chi2 = get_chisquare(sdf,aaprob)
             aadf['Gene'].append(g)
@@ -311,18 +311,19 @@ def build_pairdf(aadf,calculator):
                 pairdf['outbind'].append(calculator.binding_retained([tl]))
                 pairdf['anchorbind'].append(calculator.binding_retained([al]))
     pairdf = pd.DataFrame(pairdf)
+    return pairdf
 
 def epistasis_pipe():
     args = parse_epistasis_args()
     otdf = pd.read_csv(args.translation,sep='\t')
     cldf = pd.read_csv(args.clades,sep='\t').set_index("sample")
+    print("Counting mutation types and parameterizing null model.")
     types = get_types()
     norm_mtypes = get_mtypes(otdf, types)
     translate, aaprob, cod_dnds = build_expectation(norm_mtypes)
     if args.expanded_translation == None:
         print("Reshaping translation to per-mutation.")
         tdf = process_tdf(otdf,cldf)
-        tdf['StopGain'] = tdf.ALTC.apply(lambda x:(translate[x] == 'Stop'))
         tdf.to_csv(args.expanded_output,index=False)
     else:
         print("Per-mutation file has been provided; proceeding to next step.")
@@ -336,7 +337,7 @@ def epistasis_pipe():
     bind_d = build_bindd(tdf,npd)
     downstream_of = accumulate_changes(npd,bind_d)
     print("Encoding pairwise epistasis states.")
-    tdf, encode_cols = assign_epicols(tdf,downstream_of,args.thresh)
+    tdf, encode_cols = assign_epicols(tdf,downstream_of,args.threshold)
     print("Building amino-acid level conservation analysis with pair anchors.")
     aadf = process_pair_aadf(tdf,cod_dnds,aaprob,translate,calculator,encode_cols)
     aadf.to_csv(args.aa_output,index=False)
