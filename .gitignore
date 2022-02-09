@@ -2,3 +2,8 @@ bindingcalculator.py
 all_nodes_clades.txt
 all_sample_paths.txt
 gisaidAndPublic*
+expanded_translation.csv
+binding_dnds.csv
+pair_epistasis.csv
+.ipynb_checkpoints
+.snakemake
