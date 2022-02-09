@@ -8,9 +8,10 @@ rule process_epistasis:
         "{translate}.node_clades.txt",
         "{translate}.sample_paths.txt"
     output:
-        "{translate}.pair_epistasis.tsv"
+        "{translate}.pair_epistasis.csv",
+        "{translate}.anchored_conservation.csv"
     shell:
-        "python3 process_epistasis.py -t {input[0]} -c {input[1]} -p {input[2]} -o {output}"
+        "python3 process_epistasis.py -t {input[0]} -c {input[1]} -p {input[2]} -pa {output[0]} -aa {output[1]}"
 
 rule write_translation:
     input:
